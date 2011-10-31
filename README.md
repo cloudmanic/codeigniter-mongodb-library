@@ -72,3 +72,8 @@ The result will be an object containing matching documents.
 ## Collection Functions
 
 * `drop_collection`		Drops a collection
+
+## Query Helper Functions
+
+* `get_queries`		Returns an array of all queries run.
+* `get_last_query`		Returns the last query that ran. 

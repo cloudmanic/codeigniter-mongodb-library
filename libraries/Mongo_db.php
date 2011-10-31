@@ -38,6 +38,8 @@ class Mongo_db {
 	private $sorts = array();
 	public $updates = array(); // Public to make debugging easier
 	
+	private $query_log = array();
+	
 	private $limit = 999999;
 	private $offset = 0;
 	
@@ -614,7 +616,7 @@ class Mongo_db {
 	 	$documents = $this->db->{$collection}->find($this->wheres, $this->selects)->limit((int) $this->limit)->skip((int) $this->offset)->sort($this->sorts);
 	 	
 	 	// Clear
-	 	$this->_clear();
+	 	$this->_clear($collection, 'get');
 	 	
 	 	$returns = array();
 	 	
@@ -659,7 +661,7 @@ class Mongo_db {
 		}
 		
 		$count = $this->db->{$collection}->find($this->wheres)->limit((int) $this->limit)->skip((int) $this->offset)->count();
-		$this->_clear();
+		$this->_clear($collection, 'count');
 		return ($count);
 	}
 	
@@ -690,6 +692,7 @@ class Mongo_db {
 			$this->db->{$collection}->insert($insert, array($this->query_safety	 => TRUE));
 			if (isset($insert['_id']))
 			{
+				$this->_clear($collection, 'insert', $insert);
 				return ($insert['_id']);
 			}
 			else
@@ -729,6 +732,7 @@ class Mongo_db {
                     $this->db->{$collection}->batchInsert($insert, array($this->query_safety => TRUE));
                     if (isset($insert['_id']))
                     {
+														$this->_clear($collection, 'batch_insert', $insert);
                             return ($insert['_id']);
                     }
                     else
@@ -779,7 +783,7 @@ class Mongo_db {
 		{
 			$options = array_merge($options, array($this->query_safety => TRUE, 'multiple' => FALSE));
 			$this->db->{$collection}->update($this->wheres, $this->updates, $options);
-			$this->_clear();
+			$this->_clear($collection, 'update');
 			return (TRUE);
 		}
 		catch (MongoCursorException $e)
@@ -825,7 +829,7 @@ class Mongo_db {
 		{
 			$options = array_merge($options, array($this->query_safety => TRUE, 'multiple' => TRUE));
 			$this->db->{$collection}->update($this->wheres, $this->updates, $options);
-			$this->_clear();
+			$this->_clear($collection, 'update_all');
 			return (TRUE);
 		}
 		catch (MongoCursorException $e)
@@ -1138,7 +1142,7 @@ class Mongo_db {
 		try
 		{
 			$this->db->{$collection}->remove($this->wheres, array($this->query_safety => TRUE, 'justOne' => TRUE));
-			$this->_clear();
+			$this->_clear($collection, 'delete');
 			return (TRUE);
 		}
 		catch (MongoCursorException $e)
@@ -1173,7 +1177,7 @@ class Mongo_db {
 		try
 		{
 			$this->db->{$collection}->remove($this->wheres, array($this->query_safety => TRUE, 'justOne' => FALSE));
-			$this->_clear();
+			$this->_clear($collection, 'delete_all');
 			return (TRUE);
 		}
 		catch (MongoCursorException $e)
@@ -1246,7 +1250,7 @@ class Mongo_db {
 		
 		if ($this->db->{$collection}->ensureIndex($keys, $options) == TRUE)
 		{
-			$this->_clear();
+			$this->_clear($collection, 'add_index');
 			return ($this);
 		}
 		else
@@ -1283,7 +1287,7 @@ class Mongo_db {
 		
 		if ($this->db->{$collection}->deleteIndex($keys, $options) == TRUE)
 		{
-			$this->_clear();
+			$this->_clear($collection, 'remove_index');
 			return ($this);
 		}
 		else
@@ -1309,7 +1313,7 @@ class Mongo_db {
 			show_error("No Mongo collection specified to remove all indexes from", 500);
 		}
 		$this->db->{$collection}->deleteIndexes();
-		$this->_clear();
+		$this->_clear($collection, 'remove_all_indexes');
 		return ($this);
 	}
 	
@@ -1520,6 +1524,18 @@ class Mongo_db {
 	
 	private function _clear()
 	{
+		// Store last query in log.
+		$this->query_log[] = array('collection' => $collection,
+																'action' => $action,
+																'wheres' => $this->wheres,
+																'inserts' => $insert,
+																'updates' => $this->updates,
+																'selects' => $this->selects,
+																'limit' => $this->limit,
+																'offset' => $this->offset,
+																'sorts' => $this->sorts);
+	
+		// Clear vars
 		$this->selects	= array();
 		$this->updates	= array();
 		$this->wheres	= array();
